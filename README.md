@@ -3,10 +3,11 @@
 Tento projekt poskytuje FastAPI server pro transkripci audia pomocí **WhisperX** s podporou diarizace (rozpoznání mluvčích). Je optimalizován pro běh na **CPU** a navržen pro běh v Dockeru.
 
 ## Vlastnosti
-- **Transkripce:** Používá model OpenAI Whisper (výchozí `base`).
+- **Transkripce:** Používá model OpenAI Whisper (`medium`).
 - **Diarizace:** Rozpoznání mluvčích pomocí Pyannote.
 - **CPU Optimalizace:** Využívá `int8` kvantizaci pro rychlejší běh bez GPU.
 - **Offline Ready:** Modely se stáhnou během sestavování Docker obrazu.
+- **Volba jazyka:** Možnost specifikovat jazyk nebo nechat automatickou detekci.
 
 ## Požadavky
 1. **Hugging Face Token:** Budete potřebovat token z [huggingface.co](https://huggingface.co/settings/tokens).
@@ -22,44 +23,54 @@ Vložte svůj Hugging Face token do souboru `hf_token.txt`:
 echo "vas_hf_token_zde" > hf_token.txt
 ```
 
-### 2. Sestavení Docker obrazu
-Pro stažení a "zapečení" modelů do obrazu použijte následující příkaz:
+### 2. Spuštění pomocí Docker Compose (doporučeno)
 ```bash
-docker build --secret id=HF_TOKEN,src=hf_token.txt -t whisper-server .
+docker compose up --build
 ```
 
-### 3. Spuštění kontejneru
+### 3. Alternativně: Ruční sestavení a spuštění
 ```bash
-docker run -p 8000:8000 whisper-server
+# Sestavení obrazu
+docker build --secret id=HF_TOKEN,src=hf_token.txt -t whisper-offline .
+
+# Spuštění kontejneru
+docker run -p 8000:8000 -e HF_TOKEN=$(cat hf_token.txt) whisper-offline
 ```
 
 ## Použití API
 
 Server běží na portu `8000`. Hlavní endpoint je `/transcribe`.
 
-### Transkripce souboru (cURL)
+### Transkripce souboru (automatická detekce jazyka)
 ```bash
 curl -X POST http://localhost:8000/transcribe \
-  -H "Content-Type: multipart/form-data" \
   -F "file=@cesta/k/vasemu/audiu.wav"
 ```
 
+### Transkripce se specifikovaným jazykem
+```bash
+curl -X POST http://localhost:8000/transcribe \
+  -F "file=@audio.wav" \
+  -F "language=cs"
+```
+
+Podporované jazyky: `cs` (čeština), `en` (angličtina), `de` (němčina), `sk` (slovenština), `pl` (polština), `fr`, `es`, `it`, `pt`, `ru`, `uk`, `ja`, `zh`, ...
+
 ### Formát odpovědi
-Server vrátí JSON se segmenty textu a identifikací mluvčích:
 ```json
 {
+  "language": "cs",
   "segments": [
     {
       "start": 0.0,
       "end": 2.5,
       "text": "Dobrý den, jak se máte?",
       "speaker": "SPEAKER_00"
-    },
-    ...
+    }
   ]
 }
 ```
 
 ## Konfigurace
-- **Model:** V `main.py` a `download_models.py` můžete změnit model `base` na `tiny` (rychlejší) nebo `small` (přesnější).
+- **Model:** V `main.py` a `download_models.py` můžete změnit model na `tiny`, `base`, `small`, `medium`, `large-v2` nebo `large-v3`.
 - **Zařízení:** Nastaveno na `cpu`. Pro GPU verzi by bylo nutné upravit Dockerfile a základní obraz.
