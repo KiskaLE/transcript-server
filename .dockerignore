@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+
+# Dokumentace a tokeny
+README.md
+hf_token.txt
+
+# Dočasné soubory
+temp_audio.wav
+.DS_Store
+.idea/
+.vscode/
+*.swp
