@@ -1,49 +1,51 @@
 import os
+import httpx
 from typing import Optional
-from fastapi import FastAPI, UploadFile, File, Form
-import whisperx
-from whisperx.diarize import DiarizationPipeline
-import torch
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 
 app = FastAPI()
 
-# Nastavení pro CPU
-HF_TOKEN = os.getenv("HF_TOKEN")
-DEVICE = "cpu"
-# "int8" je pro CPU nejrychlejší volba
-COMPUTE_TYPE = "int8" 
+FUNASR_URL = os.getenv("FUNASR_URL", "http://funasr:8000")
 
 @app.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
-    language: Optional[str] = Form(None)
+    min_speakers: Optional[int] = Form(None),
+    max_speakers: Optional[int] = Form(None)
 ):
     """
-    Transkripce audio souboru.
-    
-    Args:
-        file: Audio soubor (wav, mp3, m4a, ...)
-        language: Volitelný kód jazyka (cs, en, de, sk, ...). 
-                  Pokud není zadán, jazyk bude automaticky detekován.
+    Proxy endpoint: Forwards audio to the FunASR microservice for ASR + Diarization.
+    Supports optional min/max speakers to guide diarization.
     """
-    # Uložení nahraného souboru
-    audio_path = "temp_audio.wav"
-    with open(audio_path, "wb") as f:
-        f.write(await file.read())
-
-    # 1. Transkripce (Whisper) - medium je dobrý kompromis
-    model = whisperx.load_model("medium", DEVICE, compute_type=COMPUTE_TYPE, language=language)
-    audio = whisperx.load_audio(audio_path)
-    result = model.transcribe(audio, batch_size=4, language=language)
-
-    # 2. Diarizace (Pyannote)
-    diarize_model = DiarizationPipeline(use_auth_token=HF_TOKEN, device=DEVICE)
-    diarize_segments = diarize_model(audio)
     
-    # 3. Přiřazení mluvčích k textu
-    result = whisperx.assign_word_speakers(diarize_segments, result)
+    # Read file content safely
+    file_content = await file.read()
+    filename = file.filename
+    
+    # 1 hour timeout for long files
+    timeout = httpx.Timeout(3600.0, connect=60.0) 
+    
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        try:
+            # We simply stream the file to the microservice
+            # Ensure we send a content type that hints it is audio
+            content_type = file.content_type
+            if not content_type or content_type == 'application/octet-stream':
+                content_type = 'audio/wav' # Default fallback
+            
+            files = {'file': (filename, file_content, content_type)}
+            
+            # Prepare optional data
+            data = {}
+            if min_speakers is not None: data['min_speakers'] = min_speakers
+            if max_speakers is not None: data['max_speakers'] = max_speakers
 
-    return {
-        "language": result.get("language", language),
-        "segments": result["segments"]
-    }
+            response = await client.post(f"{FUNASR_URL}/diarize", files=files, data=data)
+            
+            if response.status_code != 200:
+                 raise HTTPException(status_code=response.status_code, detail=f"FunASR Error: {response.text}")
+            
+            return response.json()
+            
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=503, detail=f"Failed to connect to FunASR service: {exc}")

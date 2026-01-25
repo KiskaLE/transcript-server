@@ -10,6 +10,22 @@ services:
       - "8000:8000"
     environment:
       - HF_TOKEN=${HF_TOKEN}
+      - FUNASR_URL=http://funasr:8000
+    depends_on:
+      - funasr
+    restart: unless-stopped
+
+  funasr:
+    build:
+      context: ./funasr-server
+    image: funasr-server
+    container_name: funasr-server
+    ports:
+      - "8001:8000"
+    secrets:
+      - HF_TOKEN
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
     restart: unless-stopped
 
 secrets:
