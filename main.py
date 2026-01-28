@@ -18,10 +18,8 @@ async def transcribe_audio(
     Supports optional min/max speakers to guide diarization.
     """
     
-    # Read file content safely
-    file_content = await file.read()
+    # Stream file to microservice instead of reading into memory
     filename = file.filename
-    
     # 1 hour timeout for long files
     timeout = httpx.Timeout(3600.0, connect=60.0) 
     
@@ -33,7 +31,11 @@ async def transcribe_audio(
             if not content_type or content_type == 'application/octet-stream':
                 content_type = 'audio/wav' # Default fallback
             
-            files = {'file': (filename, file_content, content_type)}
+            # Pass file.file directly to stream. 
+            # Note: file.file is a SpooledTemporaryFile (sync). 
+            # httpx will read it. Ideally we might wrap this in an async generator if we wanted perfect async,
+            # but this avoids the OOM which is the primary issue.
+            files = {'file': (filename, file.file, content_type)}
             
             # Prepare optional data
             data = {}

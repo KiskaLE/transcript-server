@@ -98,7 +98,7 @@ def align_transcription(segments, diarization):
     return aligned_segments
 
 @app.post("/diarize")
-async def diarize_audio(
+def diarize_audio(
     file: UploadFile = File(...),
     min_speakers: Optional[int] = Form(None),
     max_speakers: Optional[int] = Form(None)
