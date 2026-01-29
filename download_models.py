@@ -9,7 +9,7 @@ device = "cpu"
 print("Stahuji modely Whisper a Pyannote...")
 
 # 1. Stažení Whisper modelu (medium - dobrý kompromis mezi přesností a rychlostí)
-model = whisperx.load_model("medium", device, compute_type="int8")
+model = whisperx.load_model("large-v3-turbo", device, compute_type="int8")
 
 # 2. Stažení modelů pro diarizaci (vyžaduje token)
 from whisperx.diarize import DiarizationPipeline

@@ -19,7 +19,7 @@ diarization_pipeline = None
 # Config
 # Use standard large-v3-turbo. Automatically filtered by faster-whisper.
 ASR_MODEL_SIZE = "deepdml/faster-whisper-large-v3-turbo-ct2" 
-ASR_MODEL_NAME = "medium"
+ASR_MODEL_NAME = "large-v3-turbo"
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 # Fallback to Docker Secret
